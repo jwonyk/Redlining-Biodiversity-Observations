@@ -1,4 +1,4 @@
-# Homework Assignment 2 - HOLC Redlining and Biodiversity Observations
+# HOLC Redlining and Biodiversity Observations
 
 ## Purpose of this project
 
@@ -31,15 +31,15 @@ This project explores how historical redlining practices, a discriminatory neigh
 └── README.md
 ```
 
-## Data
+## Data Access
 
-The project uses following data:
+This project uses publicly available spatial data sets that are loaded using the R `sf` package. All data required to reproduce the analysis are stored locally within the project repository in the `data/` directory.
 
--   Publicly archived data from the EPA EJScreen, loaded in using `sf` package
+The first dataset is the **EJScreen** data from the [U.S. Environmental Protection Agency](https://www.epa.gov/)’s Environmental Justice Screening and Mapping Tool. Although the tool is no longer active, the data were publicly available [here](https://pedp-ejscreen.azurewebsites.net/) and have been archived locally in the project repository. The data set provides environmental and demographic indicators at the Census block group level across the United States.
 
--   GBIF bird observation data, loaded in using `sf` package
+The second data set is the **Mapping Inequality Project** redlining data, developed by the [Digital Scholarship Lab](https://dsl.richmond.edu/) at the University of Richmond. These data digitize historical Home Owners’ Loan Corporation (HOLC) maps and classifications for U.S. cities. For this project, we use the Los Angeles subset, which includes spatial polygons of HOLC grade designations. The full collection is available through the project [website](https://dsl.richmond.edu/panorama/redlining/data).
 
--   Mapping Inequality Project redlining maps, loaded in using `sf` package
+The third data set is **bird observation** data from the Global Biodiversity Information Facility (GBIF), accessed for records in the Los Angeles region from 2021 onward. The data are stored locally as a shapefile and include georeferenced species observations with associated metadata. Information of following data can be found [here](https://www.gbif.org/dataset/4fa7b334-ce0d-4e88-aaae-2e0c138d049e).
 
 ## Authorship
 
