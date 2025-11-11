@@ -1,10 +1,11 @@
 ---
-title: "Homework Assignment 2"
-subtitle: "HOLC Redlining and Biodiversity Observations"
+title: "HOLC Redlining and Biodiversity Observations"
 author: "Jay Kim"
-date: "October 19, 2025"
+date: "November 10, 2025"
 code-fold: false
 format: html
+editor_options: 
+  chunk_output_type: inline
 ---
 
 # Redlining, Justice, and Biodiversity in LA
@@ -18,7 +19,10 @@ This project investigates how historical redlining in Los Angeles to today's env
 #| warning: false
 # Load in all the Necessary Packages for upcoming tasks
 rm(list = ls())
-pacman::p_load(tidyverse, sf, stars, ggplot2, tmap, grid, here, viridisLite, dplyr, janitor, knitr, kableExtra)
+pacman::p_load(tidyverse, sf, stars, 
+               ggplot2, tmap, grid, 
+               here, viridisLite, dplyr, 
+               janitor, knitr, kableExtra, patchwork)
 ```
 
 ```{r}
@@ -103,8 +107,8 @@ ejs_LA <- st_crop(ejscreen, st_bbox(map_inequal))
 
 # Let's save the subset for future use
 st_write(ejs_LA, here("data",
-                           "ejscreen",
-                           "EJSCREEN_LA.gpkg"),
+                      "ejscreen",
+                      "EJSCREEN_LA.gpkg"),
          quiet = TRUE)
 ```
 
@@ -139,6 +143,7 @@ tm_shape(map_inequal) +
 ### Create a Map of Historical Redlining Neighborhoods
 
 ```{r}
+#| fig-cap: "Historical Home Owners' Loan Corporation (HOLC) residential security grades for Los Angeles. The HOLC categorized neighborhoods from Grade A (Best) to Grade D (Hazardous), which determined how desirable or undesirable they were for mortgage lending, taking into account the presence of low-income areas or minorities in the neighborhood." 
 #| message: false
 #| warning: false
 # Plot the map! Always make make sure to put static plotting mode
@@ -147,11 +152,11 @@ tmap_mode("plot")
 # We are going to fill the map with colors by HOLC Grade
 tm_shape(map_inequal) +
   tm_fill("grade",
-          fill.legend = tm_legend(title = "HOLC Grade"),
-          palette = c("A" = "red",
+          palette = c("A" = "green",
                       "B" = "blue",
-                      "C" = "yellow",
-                      "D" = "green")) +
+                      "C" = "orange",
+                      "D" = "red"),
+          title = "HOLC Grade") +
   tm_borders(col = "black", lwd = 0.2) +
 tm_shape(ejscreen_LA) +
   tm_borders(col = "grey", lwd = 0.1) +
@@ -170,10 +175,10 @@ tm_shape(ejscreen_LA) +
 # Spatially Join with HOLC grades 
 # Look for HOLC Polygon in `map_inequal`
 # Remove the geometry column to use as data frame
-ejscreen_LA_cent <- st_point_on_surface(ejscreen_LA)
-ejscreen_holc <- ejscreen_LA_cent %>% 
-  st_join(map_inequal["grade"],
-          join = st_within) %>%
+ejscreen_holc <- ejscreen_LA %>% 
+  st_join(map_inequal %>% 
+            select(grade),
+          join = st_intersects) %>% 
   st_drop_geometry()
 ```
 
@@ -186,9 +191,10 @@ ejscreen_summary_table <- ejscreen_holc %>%
   mutate(grade = if_else(is.na(grade), 
                          "None", 
                          grade)) %>% # Census black group X within HOLC grade
-  count(grade, name = "num_block_grps") %>% 
+  group_by(grade) %>%
+  summarize(num_block_grps = n(), .groups = "drop") %>%  
   mutate(percent = round(100 * num_block_grps / sum(num_block_grps), 1)) %>%
-  arrange(factor(grade, levels = c("A", "B", "C", "D")))
+  arrange(factor(grade, levels = c("A", "B", "C", "D", "None")))
 
 # Use `kableExtra` package to make presentable table
 ejscreen_summary_table %>% 
@@ -210,19 +216,27 @@ ejscreen_summary_table %>%
 ```{r}
 #| message: false
 #| warning: false
+
+# Create data frame that has matching HOLC Grade with the map
+holc_palette <- c("A" = "green",
+                  "B" = "blue",
+                  "C" = "orange",
+                  "D" = "red",
+                  "None" = "grey")
+
 # Subset and calculate means of HOLC grade for a visualization
 # Drop the geometry to make sure to run smoothly
 # We will use 'lowincpct' - % low income
 # 'p_lifeexppct' - percentile for low life expectancy
 # 'p_pm25' - percentile for Particulate Matter 2.5
-ejscreen_mean <- ejscreen_LA %>% 
+ejscreen_mean <- ejscreen_holc %>% 
   st_drop_geometry() %>% 
-  mutate(grade = ejscreen_holc$grade) %>% 
-  filter(!is.na(grade)) %>% 
+  mutate(grade = if_else(is.na(grade), "None", grade)) %>%  
   group_by(grade) %>% 
   summarize(avg_low_income = mean(lowincpct, na.rm = TRUE),
             avg_life_exp = mean(p_lifeexppct, na.rm = TRUE),
-            avg_pm25 = mean(p_pm25, na.rm = TRUE))
+            avg_pm25 = mean(p_pm25, na.rm = TRUE)) %>% 
+  arrange(factor(grade, levels = c("A", "B", "C", "D", "None")))
 ```
 
 ```{r}
@@ -231,6 +245,7 @@ ejscreen_mean <- ejscreen_LA %>%
 # Plot first visualization - % low income by HOLC grade
 ggplot(ejscreen_mean, aes(x = grade, y = avg_low_income, fill = grade)) +
   geom_col() +
+  scale_fill_manual(values = holc_palette) +
   labs(title = "Average % Low Income by HOLC Grade",
        x = "HOLC Grade",
        y = "Average % Low Income",
@@ -245,6 +260,7 @@ ggplot(ejscreen_mean, aes(x = grade, y = avg_low_income, fill = grade)) +
 # Plot second visualization - percentile for low life expectancy
 ggplot(ejscreen_mean, aes(x = grade, y = avg_life_exp, fill = grade)) +
   geom_col() +
+  scale_fill_manual(values = holc_palette) +
   labs(title = "Average Percentile for Life Expectancy by HOLC Grade",
        x = "HOLC Grade",
        y = "Average Percentile for Life Expectancy",
@@ -259,6 +275,7 @@ ggplot(ejscreen_mean, aes(x = grade, y = avg_life_exp, fill = grade)) +
 # Plot third visualization - percentile for Particulate Matter 2.5
 ggplot(ejscreen_mean, aes(x = grade, y = avg_pm25, fill = grade)) +
   geom_col() +
+  scale_fill_manual(values = holc_palette) +
   labs(title = "Average Percentile for Particulate Matter 2.5 by HOLC Grade",
        x = "HOLC Grade",
        y = "Average Percentile for Particulate Matter 2.5",
@@ -270,6 +287,8 @@ ggplot(ejscreen_mean, aes(x = grade, y = avg_pm25, fill = grade)) +
 ```{r}
 #| message: false
 #| warning: false
+#| fig-cap: "Environmental and socioeconomic indicators by historical HOLC grade in Los Angeles. Each panel shows average values for low income, life expectancy, and particulate matter (PM2.5) across HOLC grades A (“Best”) to D (“Hazardous”)."
+
 # Plot fourth visualization - Use `facet_wrap()` to put all three together. 
 ejscreen_long <- ejscreen_mean %>% 
   pivot_longer(cols = starts_with("avg_"),
@@ -278,7 +297,8 @@ ejscreen_long <- ejscreen_mean %>%
 
 ggplot(ejscreen_long, aes(x = grade, y = value, fill = grade)) +
   geom_col() +
-  facet_wrap(~ measure, scales = "free_y") + # 
+  scale_fill_manual(values = holc_palette) +
+  facet_wrap(~ measure, scales = "free_y") + 
   labs(title = "Environmental & Socioeconomic Status by HOLC Grade",
        x = "HOLC Grade",
        y = "Mean",
@@ -370,16 +390,20 @@ birds_summary_table %>%
 ```{r}
 #| message: false
 #| warning: false
+
 # Create data visualization using the bar graph
-ggplot(birds_summary_table, 
+holc_grade_all <- ggplot(birds_summary_table, 
        aes(x = grade, y = percent, fill = grade)) +
   geom_col() +
-  labs(title = "Percentage of Bird Observations within HOLC Grades (2021–2023)",
+  scale_fill_manual(values = holc_palette) +
+  labs(title = "Percentage of Bird Observations in Los Angeles (2021-2023)",
        x = "HOLC Grade",
        y = "Percent of Observation",
        fill = "HOLC Grade \nCatagory") +
   theme(plot.title = element_text(hjust = 0.5),
         legend.title.align = 0.5)
+
+holc_grade_all
 ```
 
 ### Without the `None`
@@ -387,17 +411,38 @@ ggplot(birds_summary_table,
 ```{r}
 #| message: false
 #| warning: false
+
 # Create data visualization using the bar graph
 # Removed "None" Catagory to better distinguish A to D area
-ggplot(birds_summary_table %>% filter(grade != "None"), 
+holc_remove_none <- ggplot(birds_summary_table %>% filter(grade != "None"), 
        aes(x = grade, y = percent, fill = grade)) +
-  geom_col() +
+  geom_col() +  
+  scale_fill_manual(values = holc_palette) +
   labs(title = "Percentage of Bird Observations within HOLC Grades (2021–2023)",
        x = "HOLC Grade",
        y = "Percent of Observation",
        fill = "HOLC Grade \nCatagory") +
   theme(plot.title = element_text(hjust = 0.5),
         legend.title.align = 0.5)
+
+holc_remove_none
+```
+
+```{r}
+#| message: false
+#| warning: false
+#| fig-cap: "Bird observations across historical HOLC neighborhood grades in Los Angeles. The left panel includes all Census block groups, while the right panel focuses only on areas assigned HOLC grades. Grades correspond to historical mortgage risk categories: A (“Best”), B (“Still Desirable”), C (“Definitely Declining”), and D (“Hazardous”), shown in green, blue, orange, and red."
+
+# Clean the title
+holc_all_clean <- holc_grade_all + theme(plot.title = element_blank())
+holc_none_clean <- holc_remove_none + theme(plot.title = element_blank())
+
+# Show side-by-side
+(holc_all_clean + holc_none_clean) +
+    plot_annotation(
+    title = "Bird Observations Across HOLC Grades in Los Angeles (2021–2023)",
+    theme = theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 11)))
 ```
 
 ### Reflection
@@ -405,3 +450,9 @@ ggplot(birds_summary_table %>% filter(grade != "None"),
 Q: Why might we have obtained different results in our analysis? What did the paper consider that we did not?
 
 Our analysis of bird observations in LA between 2021 and 2023 shows that the bird data are uneven throughout the HOLC grade areas. The most significant difference from the Ellis-Soto et al. (2023) and our data is that our focus was only on the LA. In contrast, the paper investigated 195 cities with respect to a population greater than 30 million people in the USA. Their finding is that desirable, A and B areas, of metropolitan cities have more than twice the density of regions red-lined as "hazardous" areas. Our analysis differs from the start, as the paper uses a decade-long time period, whereas we are only focusing on a shorter time frame. Our sample could be biased for different reasons due to the limited data compared to the paper.
+
+### README
+
+See below for the README correction.
+
+![](hw2_readme.png)
