@@ -25,9 +25,9 @@ This project explores how historical redlining practices, a discriminatory neigh
 │   │   └── gbif-birds-LA.shx
 │   └── mapping-inequality
 │       └── mapping-inequality-los-angeles.json
-├── EDS223-HW2.Rproj
-├── HW2.html
-├── HW2.qmd
+├── Redlining-Biodiversity-Observations.Rproj
+├── Redlining-Biodiversity-Observations.html
+├── Redlining-Biodiversity-Observations.qmd
 └── README.md
 ```
 
